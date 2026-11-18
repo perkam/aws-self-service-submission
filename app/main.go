@@ -18,13 +18,7 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
-func main() {
-	greeting := os.Getenv("GREETING")
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
+func newMux(greeting string) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"message": greeting})
@@ -36,10 +30,19 @@ func main() {
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
+	return mux
+}
+
+func main() {
+	greeting := os.Getenv("GREETING")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 
 	srv := &http.Server{
 		Addr:              ":" + port,
-		Handler:           mux,
+		Handler:           newMux(greeting),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
