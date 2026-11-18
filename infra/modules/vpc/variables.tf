@@ -36,3 +36,14 @@ variable "private_subnets" {
     error_message = "private_subnets must have exactly one CIDR per AZ in azs."
   }
 }
+
+variable "nat_mode" {
+  description = "NAT layout: none, single (one shared NAT gateway in the first AZ) or per_az (one NAT gateway and private route table per AZ)."
+  type        = string
+  default     = "none"
+
+  validation {
+    condition     = contains(["none", "single", "per_az"], var.nat_mode)
+    error_message = "nat_mode must be one of: none, single, per_az."
+  }
+}
