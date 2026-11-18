@@ -42,3 +42,64 @@ resource "aws_ecr_lifecycle_policy" "this" {
     ]
   })
 }
+
+data "aws_iam_policy_document" "github_actions_trust" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [var.github_oidc_provider_arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    # Only the main branch can assume the role, so pull requests can't push images.
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_repository}:ref:refs/heads/main"]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_actions" {
+  # Repository names can contain slashes, but role names can't.
+  name               = "${replace(var.name, "/", "-")}-ecr-push"
+  assume_role_policy = data.aws_iam_policy_document.github_actions_trust.json
+}
+
+resource "aws_iam_role_policy" "image_push" {
+  name   = "ecr-push"
+  role   = aws_iam_role.github_actions.id
+  policy = data.aws_iam_policy_document.image_push_permissions.json
+}
+
+data "aws_iam_policy_document" "image_push_permissions" {
+  # AWS doesn't support limiting this action to specific repositories.
+  statement {
+    sid       = "GetRegistryLoginToken"
+    effect    = "Allow"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "PushImages"
+    effect = "Allow"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:CompleteLayerUpload",
+      "ecr:InitiateLayerUpload",
+      "ecr:PutImage",
+      "ecr:UploadLayerPart",
+    ]
+    resources = [aws_ecr_repository.this.arn]
+  }
+}
