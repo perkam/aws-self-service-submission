@@ -7,18 +7,26 @@ on:
   pull_request:
     paths: ["app/**", ".github/workflows/app.yml"]
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Commit SHA of a published image to redeploy. Leave empty to build this commit.
+        type: string
+        required: false
 
 permissions:
   contents: read
 
+env:
+  AWS_REGION: eu-north-1
+  IMAGE: 017636909328.dkr.ecr.eu-north-1.amazonaws.com/status-api
+
 jobs:
   build:
+    if: ${{ !inputs.image_tag }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write # lets the job assume the AWS role through GitHub OIDC
-    env:
-      IMAGE: 017636909328.dkr.ecr.eu-north-1.amazonaws.com/status-api
     defaults:
       run:
         working-directory: app
@@ -43,7 +51,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: arn:aws:iam::017636909328:role/status-api-ecr-push
-          aws-region: eu-north-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Log in to Amazon ECR
         if: github.ref == 'refs/heads/main'
@@ -60,3 +68,51 @@ jobs:
           provenance: false # avoids extra untagged entries in ECR
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy-dev:
+    needs: build
+    # Also runs when the build is skipped because an existing image is being redeployed.
+    if: >-
+      ${{
+        !cancelled()
+        && github.ref == 'refs/heads/main'
+        && (needs.build.result == 'success' || needs.build.result == 'skipped')
+      }}
+    runs-on: ubuntu-latest
+    environment: dev
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write # lets the job assume the AWS role through GitHub OIDC
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::017636909328:role/status-api-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download latest task definition
+        run: >-
+          aws ecs describe-task-definition
+          --task-definition status-api
+          --query taskDefinition
+          > task-definition.json
+
+      - name: Set the image in the task definition
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@8d79160660ad39c402a16e5fc7cd2a32e8f7d6b7 # v1.9.1
+        with:
+          task-definition: task-definition.json
+          container-name: status-api
+          image: ${{ env.IMAGE }}:${{ inputs.image_tag || github.sha }}
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@a00d4d57ac0de1a99b39fe469f3d898d38717c2b # v2.6.4
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          cluster: self-service
+          service: status-api
+          wait-for-service-stability: true
+          wait-for-minutes: 15
