@@ -1,4 +1,8 @@
 resource "aws_s3_bucket" "this" {
+  #checkov:skip=CKV2_AWS_62:No consumer for state bucket events
+  #checkov:skip=CKV_AWS_144:Versioning and deny-delete policy are sufficient for state
+  #checkov:skip=CKV_AWS_145:SSE-S3 is sufficient for dev state
+  #checkov:skip=CKV_AWS_18:Access logging not required in dev; revisit before prod
   bucket        = var.bucket_name
   force_destroy = false
 
@@ -26,6 +30,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
 
     noncurrent_version_expiration {
       noncurrent_days = 90
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
     }
   }
 
