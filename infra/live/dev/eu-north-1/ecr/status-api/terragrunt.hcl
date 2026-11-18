@@ -18,6 +18,6 @@ dependency "github_oidc" {
 
 inputs = {
   name                     = "status-api"
-  github_repository        = "perkam/aws-self-service-submission"
+  github_repository        = "perkam@15228551/aws-self-service-submission@1462922734"
   github_oidc_provider_arn = dependency.github_oidc.outputs.provider_arn
 }
