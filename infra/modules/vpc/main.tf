@@ -1,4 +1,5 @@
 resource "aws_vpc" "this" {
+  #checkov:skip=CKV2_AWS_11:Flow logs not required in dev; revisit before prod
   cidr_block           = var.cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
