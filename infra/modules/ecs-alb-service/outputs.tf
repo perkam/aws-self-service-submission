@@ -12,3 +12,8 @@ output "log_group_name" {
   description = "Name of the CloudWatch log group holding the service's logs."
   value       = aws_cloudwatch_log_group.this.name
 }
+
+output "deploy_role_arn" {
+  description = "ARN of the IAM role that the GitHub Actions deploy job assumes."
+  value       = aws_iam_role.deploy.arn
+}

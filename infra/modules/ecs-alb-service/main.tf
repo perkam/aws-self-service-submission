@@ -88,6 +88,11 @@ resource "aws_ecs_service" "this" {
     rollback = true
   }
 
+  # The pipeline deploys new revisions after Terraform creates the service.
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
+
   # The target group must be attached to the listener before the service uses it,
   # and the role must keep its permissions until the service is deleted.
   depends_on = [

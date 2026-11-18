@@ -155,3 +155,23 @@ variable "ecr_repository_arn" {
   description = "ARN of the ECR repository the service pulls its image from."
   type        = string
 }
+
+variable "github_repository" {
+  description = "GitHub repository allowed to deploy the service, in the format used by its OIDC subject claim."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[^/]+/[^/]+$", var.github_repository))
+    error_message = "github_repository must be in owner/name format."
+  }
+}
+
+variable "github_environment" {
+  description = "GitHub Environment whose jobs can deploy the service."
+  type        = string
+}
+
+variable "github_oidc_provider_arn" {
+  description = "ARN of the account's GitHub OIDC provider."
+  type        = string
+}

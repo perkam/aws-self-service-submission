@@ -8,8 +8,8 @@ terraform {
 }
 
 locals {
-  # Commit SHA of the image to deploy. It must already be published to ECR.
-  image_tag = "b3753cb60f18fb2bc1e8b610b9d1c826543f443f"
+  # Image used when the service is first created. The pipeline deploys later releases.
+  initial_image_tag = "b3753cb60f18fb2bc1e8b610b9d1c826543f443f"
 }
 
 dependency "vpc" {
@@ -52,9 +52,18 @@ dependency "ecr" {
   mock_outputs_allowed_terraform_commands = ["validate", "plan"]
 }
 
+dependency "github_oidc" {
+  config_path = "../../iam/github-oidc"
+
+  mock_outputs = {
+    provider_arn = "arn:aws:iam::017636909328:oidc-provider/token.actions.githubusercontent.com"
+  }
+  mock_outputs_allowed_terraform_commands = ["validate", "plan"]
+}
+
 inputs = {
   name           = "status-api"
-  image          = "${dependency.ecr.outputs.repository_url}:${local.image_tag}"
+  image          = "${dependency.ecr.outputs.repository_url}:${local.initial_image_tag}"
   container_port = 8080
 
   environment = {
@@ -77,4 +86,8 @@ inputs = {
   alb_listener_arn      = dependency.alb.outputs.listener_arn
   alb_security_group_id = dependency.alb.outputs.security_group_id
   ecr_repository_arn    = dependency.ecr.outputs.repository_arn
+
+  github_repository        = "perkam@15228551/aws-self-service-submission@1462922734"
+  github_environment       = "dev"
+  github_oidc_provider_arn = dependency.github_oidc.outputs.provider_arn
 }
