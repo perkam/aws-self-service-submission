@@ -1,0 +1,20 @@
+# Terragrunt / Terraform working directories
+.terragrunt-cache/
+.terraform/
+
+# State (lives in S3, never in git)
+*.tfstate
+*.tfstate.*
+
+# Saved plans
+*.tfplan
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Local overrides
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

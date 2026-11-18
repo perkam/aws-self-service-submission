@@ -1,0 +1,120 @@
+name: infra
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read tool versions
+        id: versions
+        run: |
+          echo "terraform=$(awk '$1 == "terraform" { print $2 }' infra/.tool-versions)" >> "$GITHUB_OUTPUT"
+          echo "terragrunt=$(awk '$1 == "terragrunt" { print $2 }' infra/.tool-versions)" >> "$GITHUB_OUTPUT"
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ steps.versions.outputs.terraform }}
+          terraform_wrapper: false
+
+      - name: Install Terragrunt
+        working-directory: ${{ runner.temp }}
+        env:
+          TERRAGRUNT_VERSION: ${{ steps.versions.outputs.terragrunt }}
+        run: |
+          base="https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}"
+          curl -fsSLO "${base}/terragrunt_linux_amd64"
+          curl -fsSLO "${base}/SHA256SUMS"
+          sha256sum --check --ignore-missing SHA256SUMS
+          sudo install -m 0755 terragrunt_linux_amd64 /usr/local/bin/terragrunt
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive -diff infra
+
+      - name: Check Terragrunt formatting
+        working-directory: infra
+        run: terragrunt hcl fmt --check
+
+      - name: Validate Terraform modules
+        run: |
+          for module in infra/modules/*/; do
+            echo "::group::${module}"
+            terraform -chdir="${module}" init -backend=false -input=false
+            terraform -chdir="${module}" validate
+            echo "::endgroup::"
+          done
+
+      - name: Validate Terragrunt configuration
+        working-directory: infra/live
+        run: |
+          terragrunt hcl validate
+          terragrunt hcl validate --inputs --strict
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
+        with:
+          tflint_version: v0.66.0
+
+      - name: Install TFLint plugins
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: tflint --init --config "${GITHUB_WORKSPACE}/infra/.tflint.hcl"
+
+      - name: Run TFLint
+        working-directory: infra/modules
+        run: tflint --recursive --config "${GITHUB_WORKSPACE}/infra/.tflint.hcl" --format compact
+
+  security:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Install Checkov
+        run: pip install checkov==3.4.5
+
+      - name: Run Checkov
+        run: >-
+          checkov
+          --directory .
+          --framework terraform
+          --compact
+          --quiet
+          --output cli
+          --output sarif
+          --output-file-path console,results.sarif
+
+      # Pull requests from forks get a read-only token and can't upload results.
+      - name: Upload results to GitHub code scanning
+        if: >-
+          !cancelled()
+          && hashFiles('results.sarif') != ''
+          && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: results.sarif
+          category: checkov
