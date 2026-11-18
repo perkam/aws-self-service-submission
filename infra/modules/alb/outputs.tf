@@ -17,3 +17,8 @@ output "security_group_id" {
   description = "ID of the load balancer's security group."
   value       = aws_security_group.this.id
 }
+
+output "alarm_topic_arn" {
+  description = "ARN of the SNS topic that receives load balancer alarm notifications."
+  value       = aws_sns_topic.alarms.arn
+}
