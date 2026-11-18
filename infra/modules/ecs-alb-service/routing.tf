@@ -1,4 +1,5 @@
 resource "aws_lb_target_group" "this" {
+  #checkov:skip=CKV_AWS_378:Traffic from the load balancer to tasks stays inside the VPC, and the application serves plain HTTP.
   name                 = var.name
   port                 = var.container_port
   protocol             = "HTTP"

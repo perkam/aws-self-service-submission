@@ -3,6 +3,7 @@
 data "aws_region" "current" {}
 
 resource "aws_cloudwatch_log_group" "this" {
+  #checkov:skip=CKV_AWS_158:CloudWatch Logs encrypts log data by default, and a customer-managed KMS key is deferred to the production hardening work.
   name              = "/ecs/${var.name}"
   retention_in_days = var.log_retention_days
   skip_destroy      = var.keep_logs_on_destroy
