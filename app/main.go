@@ -12,6 +12,9 @@ import (
 	"time"
 )
 
+// version is the commit SHA of the build, set at build time with -ldflags "-X main.version=...".
+var version = "dev"
+
 func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
@@ -21,7 +24,7 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 func newMux(greeting string) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"message": greeting})
+		writeJSON(w, http.StatusOK, map[string]string{"message": greeting, "version": version})
 	})
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		if greeting == "" {
@@ -50,7 +53,7 @@ func main() {
 	defer stop()
 
 	go func() {
-		log.Printf("listening on :%s (greeting set: %t)", port, greeting != "")
+		log.Printf("listening on :%s (version: %s, greeting set: %t)", port, version, greeting != "")
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal(err)
 		}

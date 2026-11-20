@@ -6,7 +6,7 @@ Prosty serwis HTTP napisany w Go. Opis całego rozwiązania znajduje się w [gł
 
 | Endpoint | Odpowiedź |
 | --- | --- |
-| `GET /` | `{"message":"<GREETING>"}` |
+| `GET /` | `{"message":"<GREETING>","version":"<SHA commita>"}` (`version` to `dev` przy lokalnym buildzie) |
 | `GET /health` | `200 {"status":"ok"}` lub `503`, jeśli zmienna `GREETING` nie jest ustawiona |
 
 ## Konfiguracja
