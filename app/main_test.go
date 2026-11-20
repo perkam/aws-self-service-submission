@@ -22,7 +22,7 @@ func TestRoutes(t *testing.T) {
 			method:     http.MethodGet,
 			path:       "/",
 			wantStatus: http.StatusOK,
-			wantBody:   map[string]string{"message": "Hello from test"},
+			wantBody:   map[string]string{"message": "Hello from test", "version": "dev"},
 		},
 		{
 			name:       "health is ok when the greeting is set",
